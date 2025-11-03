@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data xmlns="http://www.woltlab.com"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.woltlab.com https://www.woltlab.com/XSD/6.1/page.xsd">
+	<import>
+		<page identifier="de.ddbmaster.cs2bannliste.page.banlist">
+			<pageType>system</pageType>
+			<controller>wcf\page\BanlistPage</controller>
+			<name language="de">CS2 Bannliste</name>
+			<name language="en">CS2 Ban List</name>
+		</page>
+		<page identifier="de.ddbmaster.cs2bannliste.page.banadd">
+			<pageType>system</pageType>
+			<controller>wcf\page\BanAddPage</controller>
+			<name language="de">Neuen Bann hinzufügen</name>
+			<name language="en">Add New Ban</name>
+		</page>
+		<page identifier="de.ddbmaster.cs2bannliste.page.banedit">
+			<pageType>system</pageType>
+			<controller>wcf\page\BanEditPage</controller>
+			<name language="de">Bann bearbeiten</name>
+			<name language="en">Edit Ban</name>
+		</page>
+		<page identifier="de.ddbmaster.cs2bannliste.page.banunban">
+			<pageType>system</pageType>
+			<controller>wcf\page\BanUnbanPage</controller>
+			<name language="de">Spieler entbannen</name>
+			<name language="en">Unban Player</name>
+		</page>
+	</import>
+</data>
+

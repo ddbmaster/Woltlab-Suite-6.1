@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.woltlab.com"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://www.woltlab.com https://www.woltlab.com/XSD/6.1/package.xsd"
+         name="de.ddbmaster.cs2bannliste">
+	<packageinformation>
+		<packagename><![CDATA[CS2 Bannliste]]></packagename>
+		<packagedescription><![CDATA[Frontend-Bannverwaltung für CS2 mit Hinzufügen, Bearbeiten und Entbannen-Funktion.]]></packagedescription>
+		<isapplication>0</isapplication>
+		<version>1.2.0</version>
+		<date>2025-10-24</date>
+	</packageinformation>
+	<authorinformation>
+		<author><![CDATA[ddbmaster]]></author>
+		<authorurl><![CDATA[https://ddbmaster.de]]></authorurl>
+	</authorinformation>
+	<requiredpackages>
+		<requiredpackage minversion="6.1.0">com.woltlab.wcf</requiredpackage>
+	</requiredpackages>
+	<instructions type="install">
+		<instruction type="file">files.tar</instruction>
+		<instruction type="template">templates.tar</instruction>
+		<instruction type="language">language/de.xml</instruction>
+		<instruction type="language">language/en.xml</instruction>
+		<instruction type="userGroupOption">userGroupOptions.xml</instruction>
+		<instruction type="page">page.xml</instruction>
+		<instruction type="menuItem">menuItem.xml</instruction>
+	</instructions>
+</package>
