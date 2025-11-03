@@ -3,9 +3,8 @@ namespace wcf\page;
 
 use wcf\page\AbstractPage;
 use wcf\system\WCF;
-use wcf\system\exception\PermissionDeniedException;
+use wcf\data\user\UserProfile;
 use PDO;
-use Throwable;
 
 class BanAddPage extends AbstractPage {
     public $templateName = 'banadd';
@@ -16,34 +15,40 @@ class BanAddPage extends AbstractPage {
         parent::readData();
 
         if (!WCF::getSession()->getPermission('user.cs2bannliste.canAdd')) {
-            throw new PermissionDeniedException();
+            throw new \wcf\system\exception\PermissionDeniedException();
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $admin_name = WCF::getUser()->username;
+            $admin_steamid = $this->resolveAdminSteamId();
+
+            if (!$admin_steamid) {
+                $this->error = "⚠ Deine Steam-ID fehlt im Profil (Profilfeld ID 30).";
+                return;
+            }
+
             try {
                 $pdo = $this->connect();
                 $cfg = $this->getConfig();
                 $table = ($cfg['prefix'] ?? '') . 'sa_bans';
 
-                $playerName = trim($_POST['player_name'] ?? '');
-                $steamID    = trim($_POST['player_steamid'] ?? '');
-                $reason     = trim($_POST['reason'] ?? '');
-                $duration   = trim($_POST['duration'] ?? '');
-                $adminName  = WCF::getUser()->username ?: 'System';
-
-                if ($playerName === '' || $steamID === '' || $reason === '') {
-                    $this->error = 'Bitte füllen Sie alle Pflichtfelder aus.';
-                    return;
-                }
-
                 $stmt = $pdo->prepare("
-                    INSERT INTO {$table} (player_name, player_steamid, reason, admin_name, created, duration, status)
-                    VALUES (?, ?, ?, ?, NOW(), ?, 'Active')
+                    INSERT INTO {$table} 
+                    (player_name, player_steamid, reason, duration, admin_name, admin_steamid, created) 
+                    VALUES (?, ?, ?, ?, ?, ?, NOW())
                 ");
-                $stmt->execute([$playerName, $steamID, $reason, $adminName, $duration]);
 
-                $this->success = 'Der Bann wurde erfolgreich hinzugefügt.';
-            } catch (Throwable $e) {
+                $stmt->execute([
+                    $_POST['player_name'],
+                    $_POST['player_steamid'],
+                    $_POST['reason'],
+                    $_POST['duration'],
+                    $admin_name,
+                    $admin_steamid
+                ]);
+
+                $this->success = "✅ Bann wurde gespeichert.";
+            } catch (\Throwable $e) {
                 $this->error = $e->getMessage();
             }
         }
@@ -53,31 +58,42 @@ class BanAddPage extends AbstractPage {
         parent::assignVariables();
         WCF::getTPL()->assign([
             'error' => $this->error,
-            'success' => $this->success,
+            'success' => $this->success
         ]);
     }
 
-    protected function getConfig(): array {
-        $file = WCF_DIR . 'config/cs2bannliste.php';
-        if (!file_exists($file)) {
-            throw new \RuntimeException('Konfigurationsdatei fehlt: ' . $file);
-        }
-        return require $file;
+    private function resolveAdminSteamId(): ?string {
+        $user = WCF::getUser();
+        $userID = (int)$user->userID;
+
+        try {
+            $profile = new UserProfile($user);
+            $val = $profile->getUserOptionValue('steamID64');
+            if (!empty($val)) return (string)$val;
+        } catch (\Throwable $e) {}
+
+        try {
+            $stmt = WCF::getDB()->prepare("SELECT userOption30 FROM wcf1_user_option_value WHERE userID = ?");
+            $stmt->execute([$userID]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!empty($row['userOption30'])) return (string)$row['userOption30'];
+        } catch (\Throwable $e) {}
+
+        return null;
     }
 
-    protected function connect(): PDO {
+    private function getConfig(): array {
+        return require WCF_DIR . 'config/cs2bannliste.php';
+    }
+
+    private function connect(): PDO {
         $cfg = $this->getConfig();
-        $dsn = sprintf(
-            'mysql:host=%s;port=%d;dbname=%s;charset=%s',
-            $cfg['hostname'],
-            $cfg['port'],
-            $cfg['database'],
-            $cfg['charset'] ?? 'utf8mb4'
+        return new PDO(
+            "mysql:host={$cfg['hostname']};dbname={$cfg['database']};port={$cfg['port']};charset=utf8mb4",
+            $cfg['username'], $cfg['password'], [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]
         );
-
-        return new PDO($dsn, $cfg['username'], $cfg['password'], [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
     }
 }
