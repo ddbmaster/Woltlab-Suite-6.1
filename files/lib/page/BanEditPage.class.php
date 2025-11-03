@@ -3,48 +3,89 @@ namespace wcf\page;
 
 use wcf\page\AbstractPage;
 use wcf\system\WCF;
-use wcf\system\exception\PermissionDeniedException;
+use wcf\data\user\UserProfile;
 use PDO;
-use Throwable;
 
 class BanEditPage extends AbstractPage {
     public $templateName = 'banedit';
-    public int $banID = 0;
-    public array $ban = [];
     public string $error = '';
     public string $success = '';
+    public array $ban = [];
 
-    public function readParameters() {
-        parent::readParameters();
-        if (isset($_GET['id'])) $this->banID = (int)$_GET['id'];
-    }
+    // Deine CS2 Datenbank
+    private string $host = 'localhost';
+    private string $db   = 'cs2';
+    private string $user = 'ddbmaster';
+    private string $pass = 'DDBMASTER-wolti001';
+    private string $table = 'sa_bans';
 
     public function readData() {
         parent::readData();
 
         if (!WCF::getSession()->getPermission('user.cs2bannliste.canEdit')) {
-            throw new PermissionDeniedException();
+            throw new \wcf\system\exception\PermissionDeniedException();
+        }
+
+        $id = (int)($_GET['id'] ?? 0);
+        if (!$id) {
+            $this->error = "Ungültige Bann-ID.";
+            return;
         }
 
         try {
             $pdo = $this->connect();
-            $cfg = $this->getConfig();
-            $table = ($cfg['prefix'] ?? '') . 'sa_bans';
 
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                $reason   = trim($_POST['reason'] ?? '');
-                $duration = trim($_POST['duration'] ?? '');
+            // Bann laden
+            $stmt = $pdo->prepare("SELECT * FROM {$this->table} WHERE id = ?");
+            $stmt->execute([$id]);
+            $this->ban = $stmt->fetch();
 
-                $stmt = $pdo->prepare("UPDATE {$table} SET reason = ?, duration = ? WHERE id = ?");
-                $stmt->execute([$reason, $duration, $this->banID]);
-
-                $this->success = 'Der Bann wurde aktualisiert.';
+            if (!$this->ban) {
+                $this->error = "Bann nicht gefunden.";
+                return;
             }
 
-            $stmt = $pdo->prepare("SELECT * FROM {$table} WHERE id = ?");
-            $stmt->execute([$this->banID]);
-            $this->ban = $stmt->fetch() ?: [];
-        } catch (Throwable $e) {
+            // Speichern
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+                $admin_name = WCF::getUser()->username;
+                $admin_steamid = $this->resolveAdminSteamId();
+
+                if (!$admin_steamid) {
+                    $this->error = "⚠ Keine Steam-ID im Profil eingetragen (Profilfeld 30).";
+                    return;
+                }
+
+                // Wenn vorher UNBANNED → zurück auf ACTIVE
+                $newStatus = ($this->ban['status'] === 'UNBANNED') ? 'ACTIVE' : $this->ban['status'];
+
+                $stmt = $pdo->prepare("
+                    UPDATE {$this->table}
+                    SET player_name=?, player_steamid=?, reason=?, duration=?,
+                        admin_name=?, admin_steamid=?, status=?
+                    WHERE id=?
+                ");
+
+                $stmt->execute([
+                    $_POST['player_name'],
+                    $_POST['player_steamid'],
+                    $_POST['reason'],
+                    $_POST['duration'],
+                    $admin_name,
+                    $admin_steamid,
+                    $newStatus,
+                    $id
+                ]);
+
+                $this->success = "✅ Bann aktualisiert.";
+
+                // Neu laden
+                $stmt = $pdo->prepare("SELECT * FROM {$this->table} WHERE id = ?");
+                $stmt->execute([$id]);
+                $this->ban = $stmt->fetch();
+            }
+
+        } catch (\Throwable $e) {
             $this->error = $e->getMessage();
         }
     }
@@ -52,33 +93,41 @@ class BanEditPage extends AbstractPage {
     public function assignVariables() {
         parent::assignVariables();
         WCF::getTPL()->assign([
-            'ban' => $this->ban,
-            'error' => $this->error,
-            'success' => $this->success,
+            'ban'     => $this->ban,
+            'error'   => $this->error,
+            'success' => $this->success
         ]);
     }
 
-    protected function getConfig(): array {
-        $file = WCF_DIR . 'config/cs2bannliste.php';
-        if (!file_exists($file)) {
-            throw new \RuntimeException('Konfigurationsdatei fehlt: ' . $file);
-        }
-        return require $file;
+    private function resolveAdminSteamId(): ?string {
+        $user = WCF::getUser();
+        $userID = (int)$user->userID;
+
+        // Profilfeld 30
+        try {
+            $stmt = WCF::getDB()->prepareStatement("
+                SELECT userOption30 FROM wcf1_user_option_value WHERE userID = ?
+            ");
+            $stmt->execute([$userID]);
+            $row = $stmt->fetchArray();
+
+            if (!empty($row['userOption30'])) {
+                return (string)$row['userOption30'];
+            }
+        } catch (\Throwable $e) {}
+
+        return null;
     }
 
-    protected function connect(): PDO {
-        $cfg = $this->getConfig();
-        $dsn = sprintf(
-            'mysql:host=%s;port=%d;dbname=%s;charset=%s',
-            $cfg['hostname'],
-            $cfg['port'],
-            $cfg['database'],
-            $cfg['charset'] ?? 'utf8mb4'
+
+    private function connect(): PDO {
+        return new PDO(
+            "mysql:host={$this->host};dbname={$this->db};charset=utf8mb4",
+            $this->user, $this->pass,
+            [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]
         );
-
-        return new PDO($dsn, $cfg['username'], $cfg['password'], [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
     }
 }
