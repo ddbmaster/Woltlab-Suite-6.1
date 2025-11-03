@@ -3,72 +3,61 @@ namespace wcf\page;
 
 use wcf\page\AbstractPage;
 use wcf\system\WCF;
-use wcf\system\exception\PermissionDeniedException;
 use PDO;
-use Throwable;
 
 class BanUnbanPage extends AbstractPage {
     public $templateName = 'banunban';
-    public int $banID = 0;
     public string $error = '';
     public string $success = '';
-
-    public function readParameters() {
-        parent::readParameters();
-        if (isset($_GET['id'])) $this->banID = (int)$_GET['id'];
-    }
 
     public function readData() {
         parent::readData();
 
         if (!WCF::getSession()->getPermission('user.cs2bannliste.canUnban')) {
-            throw new PermissionDeniedException();
+            throw new \wcf\system\exception\PermissionDeniedException();
         }
 
-        try {
-            $pdo = $this->connect();
-            $cfg = $this->getConfig();
-            $table = ($cfg['prefix'] ?? '') . 'sa_bans';
+        $banId = (int)($_GET['id'] ?? 0);
+        $adminId = WCF::getUser()->userID;
 
-            $stmt = $pdo->prepare("UPDATE {$table} SET status = 'Unbanned' WHERE id = ?");
-            $stmt->execute([$this->banID]);
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            try {
+                $pdo = $this->connect();
 
-            $this->success = 'Der Bann wurde erfolgreich aufgehoben.';
-        } catch (Throwable $e) {
-            $this->error = $e->getMessage();
+                // ✅ Bannstatus ändern
+                $stmt = $pdo->prepare("UPDATE sa_bans SET status = 'UNBANNED' WHERE id = ?");
+                $stmt->execute([$banId]);
+
+                // ✅ Eintrag in sa_unbans setzen
+                $stmt = $pdo->prepare("
+                    INSERT INTO sa_unbans (ban_id, admin_id, reason, date)
+                    VALUES (?, ?, 'Entbannt über Forum', NOW())
+                ");
+                $stmt->execute([$banId, $adminId]);
+
+                $this->success = "✅ Spieler erfolgreich entbannt!";
+            } catch (\Throwable $e) {
+                $this->error = "Fehler: ".$e->getMessage();
+            }
         }
     }
 
     public function assignVariables() {
         parent::assignVariables();
         WCF::getTPL()->assign([
-            'banID' => $this->banID,
             'error' => $this->error,
-            'success' => $this->success,
+            'success' => $this->success
         ]);
     }
 
-    protected function getConfig(): array {
-        $file = WCF_DIR . 'config/cs2bannliste.php';
-        if (!file_exists($file)) {
-            throw new \RuntimeException('Konfigurationsdatei fehlt: ' . $file);
-        }
-        return require $file;
-    }
-
-    protected function connect(): PDO {
-        $cfg = $this->getConfig();
-        $dsn = sprintf(
-            'mysql:host=%s;port=%d;dbname=%s;charset=%s',
-            $cfg['hostname'],
-            $cfg['port'],
-            $cfg['database'],
-            $cfg['charset'] ?? 'utf8mb4'
+    private function connect(): PDO {
+        $cfg = require WCF_DIR.'config/cs2bannliste.php';
+        return new PDO(
+            "mysql:host={$cfg['hostname']};dbname={$cfg['database']};charset=utf8mb4",
+            $cfg['username'], $cfg['password'], [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]
         );
-
-        return new PDO($dsn, $cfg['username'], $cfg['password'], [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
     }
 }
