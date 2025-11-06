@@ -43,7 +43,7 @@
                             <td>{$ban.created}</td>
                             <td>{$ban.duration}</td>
 
-                            {if $ban.status == 'Unbanned'}
+                            {if $ban.status == 'UNBANNED'}
                                 <td style="color:#3a3;">{$ban.status}</td>
                             {else}
                                 <td style="color:#c00;">{$ban.status}</td>
@@ -56,7 +56,7 @@
                                     </a>
                                 {/if}
 
-                                {if $canUnban && $ban.status != 'Unbanned'}
+                                {if $canUnban && $ban.status != 'UNBANNED'}
                                     <a href="{link application='wcf' controller='BanUnban' id=$ban.id}{/link}" class="button small">
                                         {lang}wcf.cs2bannliste.unban{/lang}
                                     </a>
