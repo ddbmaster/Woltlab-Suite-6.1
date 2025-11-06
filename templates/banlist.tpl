@@ -45,6 +45,8 @@
 
                             {if $ban.status == 'UNBANNED'}
                                 <td style="color:#3a3;">{$ban.status}</td>
+                            {elseif $ban.status == 'EXPIRED'}
+                            <td style="color:#ff9900;">{$ban.status}</td>
                             {else}
                                 <td style="color:#c00;">{$ban.status}</td>
                             {/if}
