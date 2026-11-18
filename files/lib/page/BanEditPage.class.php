@@ -14,9 +14,9 @@ class BanEditPage extends AbstractPage {
 
     // Deine CS2 Datenbank
     private string $host = 'localhost';
-    private string $db   = 'cs2';
-    private string $user = 'ddbmaster';
-    private string $pass = 'DDBMASTER-wolti001';
+    private string $db   = 'xxxxx';
+    private string $user = 'xxxxxx';
+    private string $pass = 'xxxxxxxxxx';
     private string $table = 'sa_bans';
 
     public function readData() {
